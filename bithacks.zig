@@ -1700,3 +1700,16 @@ test "Compute the lexicographically next bit permutation" {
     try expectEqual(nextLexicographicPermutation(@as(u32, 0b00011010)), 0b00011100);
     try expectEqual(nextLexicographicPermutation(@as(u32, 0b00011100)), 0b00100011);
 }
+
+/// Clear the lowest set bit. The optimizer seems to correctly lower this to blsr and equivalent instructions.
+/// (This is an addition to the original bithacks document)
+pub fn clearLowestSetBit(val: anytype) @TypeOf(val) {
+    return val & (val - 1);
+}
+
+test "Clear least significant set bit " {
+    try expectEqual(clearLowestSetBit(@as(u32, 0b00000001)), 0b00000000);
+    try expectEqual(clearLowestSetBit(@as(u32, 0b00011010)), 0b00011000);
+    try expectEqual(clearLowestSetBit(@as(u64, 0b00000001)), 0b00000000);
+    try expectEqual(clearLowestSetBit(@as(u64, 0b000110110001101100011011000110110001101100011000)), 0b000110110001101100011011000110110001101100010000);
+}
