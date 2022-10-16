@@ -139,20 +139,13 @@ test "Sign extending from a constant bit-width2" {
 /// represents the number to be sign-extended to the `target` type.
 /// https://github.com/cryptocode/bithacks#sign-extending-from-a-variable-bit-width
 pub fn signExtendVariable(comptime target: type, comptime bits: usize, val: anytype) target {
-    const T = requireSignedInt(@TypeOf(val));
-    const val_bits = @typeInfo(T).Int.bits;
-    comptime assert(val_bits >= bits);
-
-    // Only necessary if any bits above `bits` are non-zero
-    const only_relevant_bits = val & ((@as(usize, 1) << bits) - 1);
-    const diff: usize = val_bits - bits;
-    return (only_relevant_bits << diff) >> diff;
+    return @as(target, @truncate(std.meta.Int(.signed, bits), val));
 }
 
 test "Sign extending from a variable bit-width" {
     // Input is 0b10110110, but we only care about the lower 3 bits which we sign extend into an i16
     const res = signExtendVariable(i16, 3, @bitCast(i8, @as(u8, 0b10110110)));
-    try expect(res == -2);
+    try expectEqual(res, -2);
 }
 
 /// Conditionally set or clear bits without branching
@@ -1688,7 +1681,7 @@ pub fn nextLexicographicPermutation(val: u32) u32 {
     var t = val | (val - 1);
 
     // Set to 1 the most significant bit to change, set to 0 the least significant ones, and add the necessary 1 bits.
-    return (t + 1) | (((~t & -%~t) - 1) >> @intCast(u5, @ctz(u32, val) + 1));
+    return (t + 1) | (((~t & -%~t) - 1) >> @intCast(u5, @ctz(val) + 1));
 }
 
 test "Compute the lexicographically next bit permutation" {
