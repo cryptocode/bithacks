@@ -37,13 +37,13 @@ pub fn requireUnsignedInt(comptime T: type) type {
 /// https://github.com/cryptocode/bithacks#CopyIntegerSign
 pub fn isSignBitSet(val: anytype) bool {
     const T = requireSignedInt(@TypeOf(val));
-    return -(@intCast(T, @boolToInt(val < 0))) == -1;
+    return -(@as(T, @intCast(@intFromBool(val < 0)))) == -1;
 }
 
 test "Compute the sign of an integer" {
     var cases = [5]i32{ std.math.minInt(i32), -1, 0, 1, std.math.maxInt(i32) };
     var expected = [5]bool{ true, true, false, false, false };
-    for (cases) |num, i| {
+    for (cases, 0..) |num, i| {
         try expect(isSignBitSet(num) == expected[i]);
     }
 }
@@ -74,7 +74,7 @@ pub fn absFast(val: anytype) @TypeOf(val) {
 test "Compute the integer absolute value (abs) without branching" {
     var cases = [5]i32{ std.math.minInt(i32) + 1, -1, 0, 1, std.math.maxInt(i32) };
     var expected = [5]i32{ std.math.maxInt(i32), 1, 0, 1, std.math.maxInt(i32) };
-    for (cases) |num, i| {
+    for (cases, 0..) |num, i| {
         try expect(absFast(num) == expected[i]);
     }
 }
@@ -83,14 +83,14 @@ test "Compute the integer absolute value (abs) without branching" {
 /// https://github.com/cryptocode/bithacks#compute-the-minimum-min-or-maximum-max-of-two-integers-without-branching
 pub fn minFast(x: anytype, y: @TypeOf(x)) @TypeOf(x) {
     _ = requireSignedInt(@TypeOf(x));
-    return y ^ ((x ^ y) & -@intCast(@TypeOf(x), @boolToInt((x < y))));
+    return y ^ ((x ^ y) & -@as(@TypeOf(x), @intCast(@intFromBool((x < y)))));
 }
 
 /// Find the maximum of two signed integers without branching
 /// https://github.com/cryptocode/bithacks#compute-the-minimum-min-or-maximum-max-of-two-integers-without-branching
 pub fn maxFast(x: anytype, y: @TypeOf(x)) @TypeOf(x) {
     _ = requireSignedInt(@TypeOf(x));
-    return x ^ ((x ^ y) & -@intCast(@TypeOf(x), @boolToInt((x < y))));
+    return x ^ ((x ^ y) & -@as(@TypeOf(x), @intCast(@intFromBool((x < y)))));
 }
 
 test "Compute the minimum (min) or maximum (max) of two integers without branching" {
@@ -125,7 +125,7 @@ test "Determining if an integer is a power of 2" {
 pub fn signExtendFixed(comptime target: type, val: anytype) target {
     const T = requireUnsignedInt(@TypeOf(val));
     const SignedType = std.meta.Int(.signed, @typeInfo(T).Int.bits);
-    return @bitCast(SignedType, val);
+    return @as(SignedType, @bitCast(val));
 }
 
 test "Sign extending from a constant bit-width2" {
@@ -139,12 +139,12 @@ test "Sign extending from a constant bit-width2" {
 /// represents the number to be sign-extended to the `target` type.
 /// https://github.com/cryptocode/bithacks#sign-extending-from-a-variable-bit-width
 pub fn signExtendVariable(comptime target: type, comptime bits: usize, val: anytype) target {
-    return @as(target, @truncate(std.meta.Int(.signed, bits), val));
+    return @as(target, @as(std.meta.Int(.signed, bits), @truncate(val)));
 }
 
 test "Sign extending from a variable bit-width" {
     // Input is 0b10110110, but we only care about the lower 3 bits which we sign extend into an i16
-    const res = signExtendVariable(i16, 3, @bitCast(i8, @as(u8, 0b10110110)));
+    const res = signExtendVariable(i16, 3, @as(i8, @bitCast(@as(u8, 0b10110110))));
     try expectEqual(res, -2);
 }
 
@@ -154,7 +154,7 @@ pub fn setOrClearBits(set: bool, mask: anytype, val: anytype) @TypeOf(val) {
     _ = requireInt(@TypeOf(mask));
     const T = requireInt(@TypeOf(val));
 
-    return (val & ~mask) | (-%@as(T, @boolToInt(set)) & mask);
+    return (val & ~mask) | (-%@as(T, @intFromBool(set)) & mask);
 }
 
 test "Conditionally set or clear bits without branching" {
@@ -172,7 +172,7 @@ test "Conditionally set or clear bits without branching" {
 /// https://github.com/cryptocode/bithacks#conditionally-negate-a-value-without-branching
 pub fn negateIf(negate: bool, val: anytype) @TypeOf(val) {
     const T = requireSignedInt(@TypeOf(val));
-    const negate_as_int = @as(T, @boolToInt(negate));
+    const negate_as_int = @as(T, @intFromBool(negate));
     return (val ^ -negate_as_int) + negate_as_int;
 }
 
@@ -209,7 +209,7 @@ pub fn countBitsSetNaive(val: anytype) usize {
     while (v != 0) : (v >>= 1) {
         bits_set +%= v & 1;
     }
-    return @intCast(usize, bits_set);
+    return @as(usize, @intCast(bits_set));
 }
 
 test "Counting bits set (naive way)" {
@@ -259,7 +259,7 @@ pub fn countBitsSetKernighan(val: anytype) usize {
     while (v != 0) : (bits_set += 1) {
         v &= v - 1;
     }
-    return @truncate(usize, bits_set);
+    return @as(usize, @truncate(bits_set));
 }
 
 test "Counting bits set, Brian Kernighan's way" {
@@ -278,8 +278,8 @@ pub fn countBitsSetModulus(val: anytype) usize {
     var bits_set: u64 = switch (@typeInfo(T).Int.bits) {
         14 => (val * @as(u64, 0x200040008001) & @as(u64, 0x111111111111111)) % 0xf,
         24 => res: {
-            var c: u64 = ((@intCast(u64, val) & 0xfff) * @as(u64, 0x1001001001001) & @as(u64, 0x84210842108421)) % 0x1f;
-            c += (((@intCast(u64, val) & 0xfff000) >> 12) * @as(u64, 0x1001001001001) & @as(u64, 0x84210842108421)) % 0x1f;
+            var c: u64 = ((@as(u64, @intCast(val)) & 0xfff) * @as(u64, 0x1001001001001) & @as(u64, 0x84210842108421)) % 0x1f;
+            c += (((@as(u64, @intCast(val)) & 0xfff000) >> 12) * @as(u64, 0x1001001001001) & @as(u64, 0x84210842108421)) % 0x1f;
             break :res c;
         },
         32 => res: {
@@ -291,7 +291,7 @@ pub fn countBitsSetModulus(val: anytype) usize {
         else => @panic("Invalid integer size"),
     };
 
-    return @truncate(usize, bits_set);
+    return @as(usize, @truncate(bits_set));
 }
 
 test "Counting bits set in 14, 24, or 32-bit words using 64-bit instructions" {
@@ -360,7 +360,7 @@ pub fn countBitsRank(val: u64, pos: u64) u64 {
 
     // The following finds the the rank of a bit, meaning it returns the sum of bits that
     // are set to 1 from the most-signficant bit downto the bit at the given position.
-    var r: u64 = val >> @intCast(u6, (bits -% pos));
+    var r: u64 = val >> @as(u6, @intCast((bits -% pos)));
     r = r - ((r >> 1) & ones / 3);
     r = (r & ones / 5) + ((r >> 2) & ones / 5);
     r = (r +% (r >> 4)) & ones / 17;
@@ -393,19 +393,19 @@ pub fn bitPosOfRank(val: u64, rank: u64) u64 {
     var s: u64 = 64;
     s -%= (t -% r) & 256 >> @as(u6, 3);
     r -%= (t & ((t -% r) >> 8));
-    t = (d >> @intCast(u6, (s -% @as(u64, 16)))) & 0xff;
+    t = (d >> @as(u6, @intCast((s -% @as(u64, 16))))) & 0xff;
     s -%= ((t -% r) & 256) >> 4;
     r -%= (t & ((t -% r) >> 8));
-    t = (c >> @intCast(u6, (s -% 8))) & 0xf;
+    t = (c >> @as(u6, @intCast((s -% 8)))) & 0xf;
     s -%= ((t -% r) & 256) >> 5;
     r -%= (t & ((t -% r) >> 8));
-    t = (b >> @intCast(u6, (s -% 4))) & 0x7;
+    t = (b >> @as(u6, @intCast((s -% 4)))) & 0x7;
     s -%= ((t -% r) & 256) >> 6;
     r -%= (t & ((t -% r) >> 8));
-    t = (a >> @intCast(u6, (s -% 2))) & 0x3;
+    t = (a >> @as(u6, @intCast((s -% 2)))) & 0x3;
     s -%= ((t -% r) & 256) >> 7;
     r -%= (t & ((t -% r) >> 8));
-    t = (val >> @intCast(u6, (s -% 1))) & 0x1;
+    t = (val >> @as(u6, @intCast((s -% 1)))) & 0x1;
     s -%= ((t -% r) & 256) >> 8;
     s = 65 -% s;
     return s;
@@ -470,7 +470,7 @@ pub fn parityByLookupTable(val: anytype) bool {
     var word = val / 16;
     var bit = val % 16;
     return 0 != switch (@typeInfo(T).Int.bits) {
-        8 => parityTable[word] & (@as(u16, 0x8000) >> @intCast(u4, bit)),
+        8 => parityTable[word] & (@as(u16, 0x8000) >> @as(u4, @intCast(bit))),
         32 => res: {
             var v = val;
             v ^= v >> 16;
@@ -480,7 +480,7 @@ pub fn parityByLookupTable(val: anytype) bool {
             word = index / 16;
             bit = index % 16;
 
-            break :res parityTable[word] & (@as(u16, 0x8000) >> @intCast(u4, bit));
+            break :res parityTable[word] & (@as(u16, 0x8000) >> @as(u4, @intCast(bit)));
         },
         else => @panic("Invalid integer size"),
     };
@@ -562,7 +562,7 @@ pub fn parityParallel(val: u32) bool {
     v ^= v >> 8;
     v ^= v >> 4;
     v &= 0xf;
-    return 0 != ((@as(u16, 0x6996) >> @intCast(u4, v)) & 1);
+    return 0 != ((@as(u16, 0x6996) >> @as(u4, @intCast(v))) & 1);
 }
 
 test "Compute parity in parallel" {
@@ -620,8 +620,8 @@ pub fn swapBitsXor(pos1: usize, pos2: usize, consecutiveBits: usize, val: anytyp
     const T = requireInt(@TypeOf(val));
     const shiftType = std.math.Log2Int(T);
 
-    var x: T = ((val >> @intCast(shiftType, pos1)) ^ (val >> @intCast(shiftType, pos2))) & ((@as(T, 1) << @intCast(shiftType, consecutiveBits)) - 1);
-    return val ^ ((x << @intCast(shiftType, pos1)) | (x << @intCast(shiftType, pos2)));
+    var x: T = ((val >> @as(shiftType, @intCast(pos1))) ^ (val >> @as(shiftType, @intCast(pos2)))) & ((@as(T, 1) << @as(shiftType, @intCast(consecutiveBits))) - 1);
+    return val ^ ((x << @as(shiftType, @intCast(pos1))) | (x << @as(shiftType, @intCast(pos2))));
 }
 
 test "Swapping individual bits with XOR" {
@@ -699,10 +699,10 @@ pub fn reverseByLookup(val: u32) u32 {
         break :val tblgen.t;
     };
 
-    return (@intCast(u32, reverseTable[val & 0xff]) << 24) |
-        (@intCast(u32, reverseTable[(val >> 8) & 0xff]) << 16) |
-        (@intCast(u32, reverseTable[(val >> 16) & 0xff]) << 8) |
-        (@intCast(u32, reverseTable[(val >> 24) & 0xff]));
+    return (@as(u32, @intCast(reverseTable[val & 0xff])) << 24) |
+        (@as(u32, @intCast(reverseTable[(val >> 8) & 0xff])) << 16) |
+        (@as(u32, @intCast(reverseTable[(val >> 16) & 0xff])) << 8) |
+        (@as(u32, @intCast(reverseTable[(val >> 24) & 0xff])));
 }
 
 test "Reverse bits in word by lookup table" {
@@ -715,7 +715,7 @@ test "Reverse bits in word by lookup table" {
 /// Reverse the bits in a byte with 3 operations (64-bit multiply and modulus division)
 /// https://github.com/cryptocode/bithacks#reverse-the-bits-in-a-byte-with-3-operations-64-bit-multiply-and-modulus-division
 pub fn reverseByteMulMod(val: u8) u8 {
-    return @truncate(u8, (val * @as(u64, 0x0202020202) & @as(u64, 0x010884422010)) % 1023);
+    return @as(u8, @truncate((val * @as(u64, 0x0202020202) & @as(u64, 0x010884422010)) % 1023));
 }
 
 test "Reverse the bits in a byte with 3 operations (64-bit multiply and modulus division)" {
@@ -727,7 +727,7 @@ test "Reverse the bits in a byte with 3 operations (64-bit multiply and modulus 
 /// Reverse the bits in a byte with 4 operations (64-bit multiply, no division)
 /// https://github.com/cryptocode/bithacks#reverse-the-bits-in-a-byte-with-4-operations-64-bit-multiply-no-division
 pub fn reverseByteMulNoDiv(val: u8) u8 {
-    return @truncate(u8, ((val * @as(u64, 0x80200802)) & @as(u64, 0x0884422110)) *% @as(u64, 0x0101010101) >> 32);
+    return @as(u8, @truncate(((val * @as(u64, 0x80200802)) & @as(u64, 0x0884422110)) *% @as(u64, 0x0101010101) >> 32));
 }
 
 test "Reverse the bits in a byte with 4 operations (64-bit multiply, no division)" {
@@ -739,8 +739,8 @@ test "Reverse the bits in a byte with 4 operations (64-bit multiply, no division
 /// Reverse the bits in a byte with 7 operations (no 64-bit)
 /// https://github.com/cryptocode/bithacks#reverse-the-bits-in-a-byte-with-7-operations-no-64-bit
 pub fn reverseByte7ops(val: u8) u8 {
-    return @truncate(u8, ((val *% @as(u64, 0x0802) & @as(u64, 0x22110)) |
-        (val *% @as(u64, 0x8020) & @as(u64, 0x88440))) *% @as(u64, 0x10101) >> 16);
+    return @as(u8, @truncate(((val *% @as(u64, 0x0802) & @as(u64, 0x22110)) |
+        (val *% @as(u64, 0x8020) & @as(u64, 0x88440))) *% @as(u64, 0x10101) >> 16));
 }
 
 test "Reverse the bits in a byte with 7 operations (no 64-bit)" {
@@ -762,8 +762,8 @@ pub fn reverseInLog5steps(val: anytype) @TypeOf(val) {
     var mask = ~@as(T, 0);
 
     while (s > 0) : (s >>= 1) {
-        mask ^= (mask << @intCast(shiftType, s));
-        v = ((v >> @intCast(shiftType, s)) & mask) | ((v << @intCast(shiftType, s)) & ~mask);
+        mask ^= (mask << @as(shiftType, @intCast(s)));
+        v = ((v >> @as(shiftType, @intCast(s))) & mask) | ((v << @as(shiftType, @intCast(s))) & ~mask);
     }
 
     return v;
@@ -785,7 +785,7 @@ pub fn modPow2(numerator: anytype, shiftAmount: usize) @TypeOf(numerator) {
     const T = requireInt(@TypeOf(numerator));
     const shiftType = std.math.Log2Int(T);
 
-    const d = @as(T, 1) << @intCast(shiftType, shiftAmount);
+    const d = @as(T, 1) << @as(shiftType, @intCast(shiftAmount));
     return numerator & (d - 1);
 }
 
@@ -802,12 +802,12 @@ pub fn modPow2Minus1(numerator: anytype, shiftAmount: usize) @TypeOf(numerator) 
     const T = requireInt(@TypeOf(numerator));
     const shiftType = std.math.Log2Int(T);
 
-    const d = (@as(T, 1) << @intCast(shiftType, shiftAmount)) - 1;
+    const d = (@as(T, 1) << @as(shiftType, @intCast(shiftAmount))) - 1;
     var n = numerator;
     var m: T = numerator;
     while (n > d) : (n = m) {
         m = 0;
-        while (n != 0) : (n >>= @intCast(shiftType, shiftAmount)) {
+        while (n != 0) : (n >>= @as(shiftType, @intCast(shiftAmount))) {
             m +%= n & d;
         }
     }
@@ -888,9 +888,9 @@ pub fn modPow2Minus1NoDiv(numerator: u32, shiftAmount: usize) u32 {
 
     const shiftType = std.math.Log2Int(u32);
     const s = shiftAmount;
-    const d = (@as(u32, 1) << @intCast(shiftType, shiftAmount)) - 1;
+    const d = (@as(u32, 1) << @as(shiftType, @intCast(shiftAmount))) - 1;
     var n = numerator;
-    var m: u32 = (n & M[s]) +% ((n >> @intCast(shiftType, s)) & M[s]);
+    var m: u32 = (n & M[s]) +% ((n >> @as(shiftType, @intCast(s))) & M[s]);
 
     var q: usize = 0;
     var r: usize = 0;
@@ -898,7 +898,7 @@ pub fn modPow2Minus1NoDiv(numerator: u32, shiftAmount: usize) u32 {
         q += 1;
         r += 1;
     }) {
-        m = (m >> @intCast(shiftType, Q[s][q])) +% (m & R[s][r]);
+        m = (m >> @as(shiftType, @intCast(Q[s][q]))) +% (m & R[s][r]);
     }
     return if (m == d) 0 else m;
 }
@@ -919,7 +919,7 @@ pub fn log2floorObvious(val: anytype) @TypeOf(val) {
     var v: T = val;
     var r: T = 0;
     while (true) {
-        v >>= @intCast(shiftType, 1);
+        v >>= @as(shiftType, @intCast(1));
         if (v == 0) break;
         r +%= 1;
     }
@@ -956,10 +956,10 @@ pub fn log2usingFloat(val: u32) u32 {
 
     if (val > 0) {
         var conv: U = undefined;
-        conv.u[@boolToInt(little_endian)] = 0x43300000;
-        conv.u[@boolToInt(!little_endian)] = val;
+        conv.u[@intFromBool(little_endian)] = 0x43300000;
+        conv.u[@intFromBool(!little_endian)] = val;
         conv.d -= 4503599627370496.0;
-        return (conv.u[@boolToInt(little_endian)] >> 20) -% 0x3FF;
+        return (conv.u[@intFromBool(little_endian)] >> 20) -% 0x3FF;
     } else {
         return 0;
     }
@@ -1025,9 +1025,9 @@ pub fn log2inLogOps(val: u32) u32 {
     var res: u32 = 0;
 
     while (i >= 0) : (i -= 1) {
-        const index = @intCast(usize, i);
+        const index = @as(usize, @intCast(i));
         if ((v & b[index]) != 0) {
-            v >>= @intCast(shiftType, S[index]);
+            v >>= @as(shiftType, @intCast(S[index]));
             res |= S[index];
         }
     }
@@ -1082,7 +1082,7 @@ pub fn log10usingPowers(val: u32) u32 {
         .{ 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000 };
 
     const t: u32 = (log2inLogOpsLookup(val) + 1) * 1233 >> 12; // (use a lg2 method from above)
-    return t - @boolToInt(val < powersOf10[t]);
+    return t - @intFromBool(val < powersOf10[t]);
 }
 
 test "Find integer log base 10 of an integer" {
@@ -1196,7 +1196,7 @@ pub fn log2float32pow(val: f32, r: u32) u32 {
         u: u32,
     };
     var conv: U = .{ .f = val };
-    return ((((conv.u -% 0x3f800000) >> @intCast(shiftType, r)) +% 0x3f800000) >> 23) -% 127;
+    return ((((conv.u -% 0x3f800000) >> @as(shiftType, @intCast(r))) +% 0x3f800000) >> 23) -% 127;
 }
 
 test "Find integer log base 2 of the pow(2, r)-root of a 32-bit IEEE float (for unsigned integer r)" {
@@ -1258,7 +1258,7 @@ test "Count the consecutive zero bits (trailing) on the right in parallel" {
 
 /// Count the consecutive zero bits (trailing) on the right by binary search
 /// Input `val` must be non-zero
-/// An improvement over the original is that a branch is eliminated if input is known to be 
+/// An improvement over the original is that a branch is eliminated if input is known to be
 /// even through passing false to `canBeOdd`
 /// https://github.com/cryptocode/bithacks#count-the-consecutive-zero-bits-trailing-on-the-right-by-binary-search
 pub fn countConsecutiveZeroBitsBinarySearch(val: u32, comptime canBeOdd: bool) usize {
@@ -1306,7 +1306,7 @@ pub fn countConsecutiveZeroBitsUsingFloat(val: u32) usize {
         f: f32,
         u: u32,
     };
-    var conv: U = .{ .f = @intToFloat(f32, val & -%val) };
+    var conv: U = .{ .f = @as(f32, @floatFromInt(val & -%val)) };
     return (conv.u >> 23) - 0x7f;
 }
 
@@ -1362,9 +1362,9 @@ pub fn roundToPow2ByFloat(val: u32) u32 {
             f: f32,
             u: u32,
         };
-        var conv: U = .{ .f = @intToFloat(f32, val) };
-        const t = @as(u32, 1) << @intCast(shiftType, (conv.u >> 23) -% 0x7f);
-        return t << @boolToInt(t < val);
+        var conv: U = .{ .f = @as(f32, @floatFromInt(val)) };
+        const t = @as(u32, 1) << @as(shiftType, @intCast((conv.u >> 23) -% 0x7f));
+        return t << @intFromBool(t < val);
     } else return 1;
 }
 
@@ -1389,7 +1389,7 @@ pub fn roundToPow2By(val: u32) u32 {
     v |= v >> 16;
     v +%= 1;
     // For consistency with `roundToPow2ByFlaot`, 0 => 1
-    v +%= @boolToInt(v == 0);
+    v +%= @intFromBool(v == 0);
     return v;
 }
 
@@ -1417,8 +1417,8 @@ pub fn interleaveBitsObvious(first: anytype, second: @TypeOf(first)) DoubledIntS
     var res: T2 = 0;
     var i: isize = 0;
     while (i < bits) : (i += 1) {
-        var i_shift = @intCast(shiftType, i);
-        res |= ((first & (@as(T2, 1) << i_shift)) << i_shift) | ((second & (@as(T2, 1) << i_shift)) << @intCast(shiftType, i + 1));
+        var i_shift = @as(shiftType, @intCast(i));
+        res |= ((first & (@as(T2, 1) << i_shift)) << i_shift) | ((second & (@as(T2, 1) << i_shift)) << @as(shiftType, @intCast(i + 1)));
     }
 
     return res;
@@ -1492,11 +1492,11 @@ pub fn interleaveBitsMul(first: u8, second: u8) u16 {
     var x: u16 = first;
     var y: u16 = second;
 
-    return @truncate(u16, ((((x *%
+    return @as(u16, @truncate(((((x *%
         @as(u64, 0x0101010101010101)) & 0x8040201008040201) *%
         @as(u64, 0x0102040810204081)) >> 49) & 0x5555 | (((((y *%
         @as(u64, 0x0101010101010101)) & 0x8040201008040201) *%
-        @as(u64, 0x0102040810204081)) >> 48) & 0xaaaa));
+        @as(u64, 0x0102040810204081)) >> 48) & 0xaaaa)));
 }
 
 test "Interleave bits with 64-bit multiply" {
@@ -1580,7 +1580,7 @@ pub fn countBytesLessThan(val: anytype, n: u8) usize {
     var res = (((((maxBy255 *% @as(T, 127 +% n)) -%
         (val & (maxBy255 *% 127))) & ~val) &
         (maxBy255 *% 128)) / 128) % 255;
-    return @intCast(usize, res);
+    return @as(usize, @intCast(res));
 }
 
 test "Determine if a word has a byte less than n" {
@@ -1615,7 +1615,7 @@ pub fn countBytesGreaterThan(val: anytype, n: u8) usize {
     var res = (((((val & (maxBy255 *% 127)) +%
         (maxBy255 *% (127 -% n))) | val) &
         (maxBy255 *% 128)) / 128) % 255;
-    return @intCast(usize, res);
+    return @as(usize, @intCast(res));
 }
 
 test "Determine if a word has a byte greater than n" {
@@ -1681,7 +1681,7 @@ pub fn nextLexicographicPermutation(val: u32) u32 {
     var t = val | (val - 1);
 
     // Set to 1 the most significant bit to change, set to 0 the least significant ones, and add the necessary 1 bits.
-    return (t + 1) | (((~t & -%~t) - 1) >> @intCast(u5, @ctz(val) + 1));
+    return (t + 1) | (((~t & -%~t) - 1) >> @as(u5, @intCast(@ctz(val) + 1)));
 }
 
 test "Compute the lexicographically next bit permutation" {
