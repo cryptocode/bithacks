@@ -2,6 +2,8 @@
 
 This Zig library reimplements and improves upon the [Bit Twiddling Hacks](https://graphics.stanford.edu/~seander/bithacks.html) snippets originally authored by Sean Eron Anderson and contributors.
 
+Most recently tested with Zig master version `0.12.0-dev.3161+377ecc6af`. Run tests with `zig test bithacks.zig`
+
 Improvements include:
 
 * Comptime args are used to prune branches in certain cases where the caller can provide extra information about the input.

@@ -41,8 +41,8 @@ pub fn isSignBitSet(val: anytype) bool {
 }
 
 test "Compute the sign of an integer" {
-    var cases = [5]i32{ std.math.minInt(i32), -1, 0, 1, std.math.maxInt(i32) };
-    var expected = [5]bool{ true, true, false, false, false };
+    const cases = [5]i32{ std.math.minInt(i32), -1, 0, 1, std.math.maxInt(i32) };
+    const expected = [5]bool{ true, true, false, false, false };
     for (cases, 0..) |num, i| {
         try expect(isSignBitSet(num) == expected[i]);
     }
@@ -72,8 +72,8 @@ pub fn absFast(val: anytype) @TypeOf(val) {
 }
 
 test "Compute the integer absolute value (abs) without branching" {
-    var cases = [5]i32{ std.math.minInt(i32) + 1, -1, 0, 1, std.math.maxInt(i32) };
-    var expected = [5]i32{ std.math.maxInt(i32), 1, 0, 1, std.math.maxInt(i32) };
+    const cases = [5]i32{ std.math.minInt(i32) + 1, -1, 0, 1, std.math.maxInt(i32) };
+    const expected = [5]i32{ std.math.maxInt(i32), 1, 0, 1, std.math.maxInt(i32) };
     for (cases, 0..) |num, i| {
         try expect(absFast(num) == expected[i]);
     }
@@ -275,7 +275,7 @@ test "Counting bits set, Brian Kernighan's way" {
 /// https://github.com/cryptocode/bithacks#counting-bits-set-in-14-24-or-32-bit-words-using-64-bit-instructions
 pub fn countBitsSetModulus(val: anytype) usize {
     const T = requireInt(@TypeOf(val));
-    var bits_set: u64 = switch (@typeInfo(T).Int.bits) {
+    const bits_set: u64 = switch (@typeInfo(T).Int.bits) {
         14 => (val * @as(u64, 0x200040008001) & @as(u64, 0x111111111111111)) % 0xf,
         24 => res: {
             var c: u64 = ((@as(u64, @intCast(val)) & 0xfff) * @as(u64, 0x1001001001001) & @as(u64, 0x84210842108421)) % 0x1f;
@@ -382,10 +382,10 @@ pub fn bitPosOfRank(val: u64, rank: u64) u64 {
     const ones = ~@as(u64, 0);
 
     // Do a normal parallel bit count for a 64-bit integer, but store all intermediate steps:
-    var a: u64 = val - ((val >> 1) & ones / 3);
-    var b: u64 = (a & ones / 5) + ((a >> 2) & ones / 5);
-    var c: u64 = (b +% (b >> 4)) & ones / 0x11;
-    var d: u64 = (c +% (c >> 8)) & ones / 0x101;
+    const a: u64 = val - ((val >> 1) & ones / 3);
+    const b: u64 = (a & ones / 5) + ((a >> 2) & ones / 5);
+    const c: u64 = (b +% (b >> 4)) & ones / 0x11;
+    const d: u64 = (c +% (c >> 8)) & ones / 0x101;
     var t: u64 = (d >> 32) + (d >> 48);
     var r = rank;
 
@@ -457,7 +457,7 @@ pub fn parityByLookupTable(val: anytype) bool {
     // For each row n in [0..15], if the n'th bit in the seed is 0, use the seed as the row,
     // otherwise use the inverted seed as the row.
     const seed: u16 = 0b0110100110010110;
-    var parityTable = comptime val: {
+    const parityTable = comptime val: {
         var table: [16]u16 = undefined;
         var row: usize = 0;
         while (row < 16) : (row += 1) {
@@ -620,7 +620,7 @@ pub fn swapBitsXor(pos1: usize, pos2: usize, consecutiveBits: usize, val: anytyp
     const T = requireInt(@TypeOf(val));
     const shiftType = std.math.Log2Int(T);
 
-    var x: T = ((val >> @as(shiftType, @intCast(pos1))) ^ (val >> @as(shiftType, @intCast(pos2)))) & ((@as(T, 1) << @as(shiftType, @intCast(consecutiveBits))) - 1);
+    const x: T = ((val >> @as(shiftType, @intCast(pos1))) ^ (val >> @as(shiftType, @intCast(pos2)))) & ((@as(T, 1) << @as(shiftType, @intCast(consecutiveBits))) - 1);
     return val ^ ((x << @as(shiftType, @intCast(pos1))) | (x << @as(shiftType, @intCast(pos2))));
 }
 
@@ -889,7 +889,7 @@ pub fn modPow2Minus1NoDiv(numerator: u32, shiftAmount: usize) u32 {
     const shiftType = std.math.Log2Int(u32);
     const s = shiftAmount;
     const d = (@as(u32, 1) << @as(shiftType, @intCast(shiftAmount))) - 1;
-    var n = numerator;
+    const n = numerator;
     var m: u32 = (n & M[s]) +% ((n >> @as(shiftType, @intCast(s))) & M[s]);
 
     var q: usize = 0;
@@ -945,8 +945,8 @@ test "Find the log base 2 of an integer with the MSB N set in O(N) operations (t
 pub fn log2usingFloat(val: u32) u32 {
     const endian = @import("builtin").target.cpu.arch.endian();
     const little_endian: bool = switch (endian) {
-        .Little => true,
-        .Big => false,
+        .little => true,
+        .big => false,
     };
 
     const U = extern union {
@@ -992,7 +992,7 @@ pub fn log2usingLookupTable(val: u32) u32 {
         break :val table;
     };
 
-    var tt: u32 = val >> 16;
+    const tt: u32 = val >> 16;
     var t: u32 = undefined;
 
     if (tt != 0) {
@@ -1133,8 +1133,8 @@ pub fn log2float32(val: f32, comptime supportSubnormals: bool) u32 {
         f: f32,
         u: u32,
     };
-    var conv: U = .{ .f = val };
-    var x = conv.u;
+    const conv: U = .{ .f = val };
+    const x = conv.u;
 
     if (supportSubnormals) {
         // Build log table at compile time
@@ -1195,7 +1195,7 @@ pub fn log2float32pow(val: f32, r: u32) u32 {
         f: f32,
         u: u32,
     };
-    var conv: U = .{ .f = val };
+    const conv: U = .{ .f = val };
     return ((((conv.u -% 0x3f800000) >> @as(shiftType, @intCast(r))) +% 0x3f800000) >> 23) -% 127;
 }
 
@@ -1237,7 +1237,7 @@ test "Count the consecutive zero bits (trailing) on the right linearly" {
 /// Count the consecutive zero bits (trailing) on the right in parallel
 /// https://github.com/cryptocode/bithacks#count-the-consecutive-zero-bits-trailing-on-the-right-in-parallel
 pub fn countConsecutiveZeroBitsParallel(val: u32) usize {
-    var v: u32 = val & -%val;
+    const v: u32 = val & -%val;
     var c: u32 = 32;
 
     if (v != 0) c -%= 1;
@@ -1306,7 +1306,7 @@ pub fn countConsecutiveZeroBitsUsingFloat(val: u32) usize {
         f: f32,
         u: u32,
     };
-    var conv: U = .{ .f = @as(f32, @floatFromInt(val & -%val)) };
+    const conv: U = .{ .f = @as(f32, @floatFromInt(val & -%val)) };
     return (conv.u >> 23) - 0x7f;
 }
 
@@ -1362,7 +1362,7 @@ pub fn roundToPow2ByFloat(val: u32) u32 {
             f: f32,
             u: u32,
         };
-        var conv: U = .{ .f = @as(f32, @floatFromInt(val)) };
+        const conv: U = .{ .f = @as(f32, @floatFromInt(val)) };
         const t = @as(u32, 1) << @as(shiftType, @intCast((conv.u >> 23) -% 0x7f));
         return t << @intFromBool(t < val);
     } else return 1;
@@ -1417,7 +1417,7 @@ pub fn interleaveBitsObvious(first: anytype, second: @TypeOf(first)) DoubledIntS
     var res: T2 = 0;
     var i: isize = 0;
     while (i < bits) : (i += 1) {
-        var i_shift = @as(shiftType, @intCast(i));
+        const i_shift = @as(shiftType, @intCast(i));
         res |= ((first & (@as(T2, 1) << i_shift)) << i_shift) | ((second & (@as(T2, 1) << i_shift)) << @as(shiftType, @intCast(i + 1)));
     }
 
@@ -1489,8 +1489,8 @@ test "Interleave bits by table lookup" {
 /// Interleave bits with 64-bit multiply
 /// https://github.com/cryptocode/bithacks#interleave-bits-with-64-bit-multiply
 pub fn interleaveBitsMul(first: u8, second: u8) u16 {
-    var x: u16 = first;
-    var y: u16 = second;
+    const x: u16 = first;
+    const y: u16 = second;
 
     return @as(u16, @truncate(((((x *%
         @as(u64, 0x0101010101010101)) & 0x8040201008040201) *%
@@ -1577,7 +1577,7 @@ pub fn countBytesLessThan(val: anytype, n: u8) usize {
     const T = requireUnsignedInt(@TypeOf(val));
 
     const maxBy255 = ~@as(T, 0) / 255;
-    var res = (((((maxBy255 *% @as(T, 127 +% n)) -%
+    const res = (((((maxBy255 *% @as(T, 127 +% n)) -%
         (val & (maxBy255 *% 127))) & ~val) &
         (maxBy255 *% 128)) / 128) % 255;
     return @as(usize, @intCast(res));
@@ -1612,7 +1612,7 @@ pub fn countBytesGreaterThan(val: anytype, n: u8) usize {
     const T = requireUnsignedInt(@TypeOf(val));
 
     const maxBy255 = ~@as(T, 0) / 255;
-    var res = (((((val & (maxBy255 *% 127)) +%
+    const res = (((((val & (maxBy255 *% 127)) +%
         (maxBy255 *% (127 -% n))) | val) &
         (maxBy255 *% 128)) / 128) % 255;
     return @as(usize, @intCast(res));
@@ -1678,7 +1678,7 @@ test "Determine if a word has a byte between m and n" {
 /// https://github.com/cryptocode/bithacks#compute-the-lexicographically-next-bit-permutation
 pub fn nextLexicographicPermutation(val: u32) u32 {
     // Input's least significant 0 bits set to 1
-    var t = val | (val - 1);
+    const t = val | (val - 1);
 
     // Set to 1 the most significant bit to change, set to 0 the least significant ones, and add the necessary 1 bits.
     return (t + 1) | (((~t & -%~t) - 1) >> @as(u5, @intCast(@ctz(val) + 1)));
