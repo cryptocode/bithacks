@@ -14,21 +14,21 @@ const assert = std.debug.assert;
 
 /// Asserts at compile time that `T` is an integer, returns `T`
 pub fn requireInt(comptime T: type) type {
-    comptime assert(@typeInfo(T) == .Int);
+    comptime assert(@typeInfo(T) == .int);
     return T;
 }
 
 /// Asserts at compile time that `T` is a nsigned integer, returns `T`
 pub fn requireSignedInt(comptime T: type) type {
     _ = requireInt(T);
-    comptime assert(@typeInfo(T).Int.signedness == .signed);
+    comptime assert(@typeInfo(T).int.signedness == .signed);
     return T;
 }
 
 /// Asserts at compile time that `T` is an unsigned integer, returns `T`
 pub fn requireUnsignedInt(comptime T: type) type {
     _ = requireInt(T);
-    comptime assert(@typeInfo(T).Int.signedness == .unsigned);
+    comptime assert(@typeInfo(T).int.signedness == .unsigned);
     return T;
 }
 
@@ -65,7 +65,7 @@ test "Detect if two integers have opposite signs" {
 /// https://github.com/cryptocode/bithacks#compute-the-integer-absolute-value-abs-without-branching
 pub fn absFast(val: anytype) @TypeOf(val) {
     const T = requireSignedInt(@TypeOf(val));
-    const bits = @typeInfo(T).Int.bits;
+    const bits = @typeInfo(T).int.bits;
 
     const mask: T = val >> (bits - 1);
     return (val + mask) ^ mask;
@@ -106,7 +106,7 @@ test "Compute the minimum (min) or maximum (max) of two integers without branchi
 /// https://github.com/cryptocode/bithacks#determining-if-an-integer-is-a-power-of-2
 pub fn isPowerOf2(val: anytype) bool {
     const T = @TypeOf(val);
-    const abs = if (@typeInfo(T) == .Int and @typeInfo(T).Int.signedness == .signed) absFast(val) else val;
+    const abs = if (@typeInfo(T) == .int and @typeInfo(T).int.signedness == .signed) absFast(val) else val;
     return abs != 0 and (abs & (abs - 1)) == 0;
 }
 
@@ -124,7 +124,7 @@ test "Determining if an integer is a power of 2" {
 /// https://github.com/cryptocode/bithacks#sign-extending-from-a-constant-bit-width
 pub fn signExtendFixed(comptime target: type, val: anytype) target {
     const T = requireUnsignedInt(@TypeOf(val));
-    const SignedType = std.meta.Int(.signed, @typeInfo(T).Int.bits);
+    const SignedType = std.meta.Int(.signed, @typeInfo(T).int.bits);
     return @as(SignedType, @bitCast(val));
 }
 
@@ -275,7 +275,7 @@ test "Counting bits set, Brian Kernighan's way" {
 /// https://github.com/cryptocode/bithacks#counting-bits-set-in-14-24-or-32-bit-words-using-64-bit-instructions
 pub fn countBitsSetModulus(val: anytype) usize {
     const T = requireInt(@TypeOf(val));
-    const bits_set: u64 = switch (@typeInfo(T).Int.bits) {
+    const bits_set: u64 = switch (@typeInfo(T).int.bits) {
         14 => (val * @as(u64, 0x200040008001) & @as(u64, 0x111111111111111)) % 0xf,
         24 => res: {
             var c: u64 = ((@as(u64, @intCast(val)) & 0xfff) * @as(u64, 0x1001001001001) & @as(u64, 0x84210842108421)) % 0x1f;
@@ -314,7 +314,7 @@ pub fn countBitsSetParallel(val: anytype) @TypeOf(val) {
     var bits_set: T = 0;
     const ones = ~@as(T, 0);
 
-    switch (@typeInfo(T).Int.bits) {
+    switch (@typeInfo(T).int.bits) {
         // Method optimized for 32 bit integers
         32 => {
             v = v - ((v >> 1) & 0x55555555);
@@ -450,7 +450,7 @@ test "Computing parity the naive way" {
 /// https://github.com/cryptocode/bithacks#compute-parity-by-lookup-table
 pub fn parityByLookupTable(val: anytype) bool {
     const T = requireUnsignedInt(@TypeOf(val));
-    comptime assert(@typeInfo(T).Int.bits == 8 or @typeInfo(T).Int.bits == 32);
+    comptime assert(@typeInfo(T).int.bits == 8 or @typeInfo(T).int.bits == 32);
 
     // Generate the lookup table at compile time which determines if the n'th number has an odd number of bits.
     // The table can be viewed as a 16 by 16 bit-matrix generated from a seed following these rules:
@@ -469,7 +469,7 @@ pub fn parityByLookupTable(val: anytype) bool {
 
     var word = val / 16;
     var bit = val % 16;
-    return 0 != switch (@typeInfo(T).Int.bits) {
+    return 0 != switch (@typeInfo(T).int.bits) {
         8 => parityTable[word] & (@as(u16, 0x8000) >> @as(u4, @intCast(bit))),
         32 => res: {
             var v = val;
@@ -518,9 +518,9 @@ test "Compute parity of a byte using 64-bit multiply and modulus division" {
 /// https://github.com/cryptocode/bithacks#compute-parity-of-word-with-a-multiply
 pub fn parityMul(val: anytype) bool {
     const T = requireUnsignedInt(@TypeOf(val));
-    comptime assert(@typeInfo(T).Int.bits == 32 or @typeInfo(T).Int.bits == 64);
+    comptime assert(@typeInfo(T).int.bits == 32 or @typeInfo(T).int.bits == 64);
 
-    return 0 != switch (@typeInfo(T).Int.bits) {
+    return 0 != switch (@typeInfo(T).int.bits) {
         32 => res: {
             var v = val;
             v ^= v >> 1;
@@ -633,7 +633,7 @@ test "Swapping individual bits with XOR" {
 /// https://github.com/cryptocode/bithacks#reverse-bits-the-obvious-way
 pub fn reverseObvious(val: anytype) @TypeOf(val) {
     const T = requireInt(@TypeOf(val));
-    const bits = @typeInfo(T).Int.bits;
+    const bits = @typeInfo(T).int.bits;
     const shiftType = std.math.Log2Int(T);
 
     var finalShiftsNeeded: shiftType = bits - 1;
@@ -753,7 +753,7 @@ test "Reverse the bits in a byte with 7 operations (no 64-bit)" {
 /// https://github.com/cryptocode/bithacks#reverse-an-n-bit-quantity-in-parallel-in-5--lgn-operations
 pub fn reverseInLog5steps(val: anytype) @TypeOf(val) {
     const T = requireInt(@TypeOf(val));
-    const bits = @typeInfo(T).Int.bits;
+    const bits = @typeInfo(T).int.bits;
     comptime assert(std.math.isPowerOfTwo(bits));
     const shiftType = std.math.Log2Int(T);
 
@@ -1218,7 +1218,7 @@ pub fn countConsecutiveZeroBitsLinearily(val: anytype) usize {
             v >>= 1;
         }
     } else {
-        c = @typeInfo(T).Int.bits;
+        c = @typeInfo(T).int.bits;
     }
 
     return c;
@@ -1402,7 +1402,7 @@ test "Round up to the next highest power of 2" {
 }
 
 fn DoubledIntSize(comptime T: type) type {
-    return std.meta.Int(@typeInfo(T).Int.signedness, @typeInfo(T).Int.bits * 2);
+    return std.meta.Int(@typeInfo(T).int.signedness, @typeInfo(T).int.bits * 2);
 }
 
 /// Interleave bits the obvious way
@@ -1411,7 +1411,7 @@ fn DoubledIntSize(comptime T: type) type {
 pub fn interleaveBitsObvious(first: anytype, second: @TypeOf(first)) DoubledIntSize(@TypeOf(first)) {
     const T = @TypeOf(first);
     const T2 = DoubledIntSize(T);
-    const bits = @typeInfo(T).Int.bits;
+    const bits = @typeInfo(T).int.bits;
     const shiftType = std.math.Log2Int(T2);
 
     var res: T2 = 0;
