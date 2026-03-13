@@ -2,10 +2,6 @@
 
 This Zig library reimplements and improves upon the [Bit Twiddling Hacks](https://graphics.stanford.edu/~seander/bithacks.html) snippets originally authored by Sean Eron Anderson and contributors.
 
-Most recently tested with Zig master version `0.14.0-dev.1694+3b465ebec`. 
-
-Use the zig-0.13 tag to target Zig 0.13/0.12
-
 Run tests with `zig test bithacks.zig`
 
 Improvements include:
